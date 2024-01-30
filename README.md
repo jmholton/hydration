@@ -52,6 +52,7 @@ Yes, I know the extension says `*.com`, but these are not Windows executables. T
 
 ### Executing program
 
+#### file format conversion 
 The first program you may want to run is:
 ```
 rst2pdb_runme.com amber.rst7 orignames=orignames.pdb parmfile=xtal.prmtop
@@ -65,19 +66,28 @@ as `resized.parm7` as well as a shortened version of `orignames.pdb`. However, i
 
 You can change the output file prefix using `outpreifx=whatever`, or by specifying a pdb file name on the command line. In general, for all these scripts, any variable you see at the beginning of the script can be changed on the command line using the `variable=value` syntax.
 
+#### Abhoring the Vacuum
 The next thing you probably want to do is check to see if your current simulation has vacuum bubbles:
 ```
 bubble_check_runme.com amber.pdb Vwater=96 minvoid=5
 ```
 This will use `gemmi` to look for spaces between atoms and measure their volumes. In bulk water, there is about 96 A^3 of volume for each water molecule, which is the default for `Vwater`, so you don't have to specify it to take the default. The `minvoid` variable is the number of water molecules that a vacuum bubble can hold before it is considered a "void". How big are vacuum bubbles in normal bulk water at STP? I have no idea. But 5 strikes me as a bit much, so it is the default. If you have a vacuum bubble that can hold thousands of waters, then you might do well by filling it in.  This script will print out a reocmmended fill-in command, such as:<br>
+
+#### Hydrate
 The next thing you probably want to do is check to see if your current simulation has vacuum bubbles:
 ```
 hydrarte_runme.com amber.pdb nadd=1000 outrst=wetter.rst7 outtop=xtal.prmtop
 ```
 The output will be the result of running the AmberTools AddToBox program.  The last molecule in amber.pdb is taken as the "water" to add, thus preserving any extra points. In the end, you will have a new restart file, including velocities, and topology file to continue your simulation, but now with a few more waters. The filename values in the above command are the defaults. The key to adding in new waters to an AMBER parm file is the unmentioned `padded.parm7` file. The script will complain and exit if you don't have `padded.parm7`. It works by not adding extra waters to your previous `*.parm7` file, but rather by stripping an appropriate number of waters out of `padded.parm7` so that it is compatible with the new number of waters.<br> 
 All new waters are given zero velocity, but will quickly heat up when the simulation restarts. I have not seen any need for an explicit re-heating protocol in my simulations so far.<br>
-Also note: you can provide an `*.rst7` file on the command line instead of a PDB file and `hydrate_runme.com` will call `rst2pdb_runme.com` internally to generate the `*.pdb` file needed by AddToBox.
+Also note: you can provide an `*.rst7` file on the command line instead of a PDB file and `hydrate_runme.com` will call `rst2pdb_runme.com` internally to generate the `*.pdb` file needed by AddToBox.<br>
+If you provide a `restraints=current_restraints.pdb` file on the command line, this script will also update the reference points file called `ref.crd` so that it is also the same size as the new `wetter.rst7`, using the XYZ coordinates in `current_restraints.pdb`.
 
+#### De-hydrate
+Removing waters from an AMBER simulation is much easier than adding them. The existing and popular `cpptraj` and `parmed` programs can do this with the `strip` command. A good question, however, is: which ones?
+```
+dehydrarte_amber_runme.com toowet.rst7 maxreject=10 outprefix=drier.rst7
+```
 
 
 ## Help
