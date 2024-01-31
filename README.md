@@ -136,12 +136,27 @@ This is an awk jiffy program for performing various re-formatting functions on a
 ```
 % convert_pdb.awk -v output=amber refmacout.pdb > tleapme.pdb
 ```
-This will do things like change the N-terminal `H` atom into the `H1` that tleap expects. Change `HOH` to `WAT`, and `NH4` to `AMM`, and `ACY` to `ACT`. Information about the protonation state can be provided with keywords prepended to the PDB file, such as:
+This will do things like change the N-terminal `H` atom into the `H1` that tleap expects. It will also add `TER` records at the end of each protein, ligand and water molecule. It will further change `HOH` to `WAT`, and `NH4` to `AMM`, and `ACY` to `ACT`. Information about the protonation state can be provided with keywords prepended to the PDB file, such as:
 ```
 echo "PROTON A324" | cat - refmacout.pdb | convert_pdb.awk -v output=amber > tleapme.pdb
 ```
 You can also begin a line with `HID `, `HIE ` or `HIP ` to specify residue IDs (chain letter and residue number) to be given a non-default protonation state.<br>
-
+You can also set other variables for different behaviors:<br>
+* `only=protein` will print out only residues types known to be non-exotic amino acids
+* `skip=water,H,EP` will skip all `HOH` residues, as well as leave out all hydrogen and extra-point atoms
+* `fixEe=1` will justify 2-letter residue types, and element symbols as they are output by refmac.
+* `fixEe=1` will justify 2-letter residue types, and element symbols as they are output by refmac.
+* `append=ordresnum` will append the oridnal residue number at the end of each line
+* `append=origid` will append the original, unmodified atom,type,chain,resnum string to the end of each line
+* `renumber=ordinal` re-start residue numbering from the beginning
+* `renumber=terify` add `TER` records
+* `renumber=w8` use all eight spaces available for residue numbers
+* `renumber=w4` try to make residue number fit into four digits, increment chain if neccesary
+* `renumber=ordinal` start counting
+* `renumber=watS` discard all chain information and re-chain, starting protein at chain A, start water at chain S.
+* `renumber=chain` restart residue counter for each new chain encountered
+* `renumber=dedupe` only check for and try to eliminate duplicate residue names
+* `renumber=ordinal,watS,w4,chainrestart` re-start all residue numbers. Make protein start at chain A. Non-protein at chain L, water start at chain S. Use 4-character numbers and increment chain ID to prevent overflows.
 
 
 #### compact residue numbers
