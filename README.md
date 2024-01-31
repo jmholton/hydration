@@ -59,21 +59,21 @@ The first program you may want to run is:
 ```
 rst2pdb_runme.com amber.rst7 orignames=orignames.pdb parmfile=xtal.prmtop
 ```
-This will serve as a good test to see if everything is working. Success is indicated by the output of a new pdb formatted file called `amber.pdb`, which will have the same names as the atoms in `orignames.pdb`, but with the
+This will serve as a good test to see if everything is working. Success is indicated by the output of a new pdb formatted file that will be called `amber.pdb`, which will have the same names as the atoms in `orignames.pdb`, but with the
 xyz coordinates contained in the amber.rst7 file. The options shown for `orignames` and `parmfile` are the internally-stored defaults, so are not required if you already have those files with those names. I recommend using these names, but if you don't like those
 names for some reason, I recommed editing the defaults at the top of the `rst2pdb_runme.com` script.<br>
 Another internal default is `paddedparm=padded.parm7`, which is the topology file you will want to generate yourself
-using LEAP, but with a few thousand extra dummy waters tacked on to the end. If for some reason the `xtal.prmtop` is missing or otherwise incompatible with `amber.rst7`, the `rst2pdb_runme.com` script will look for `padded.parm7` and strip out waters until it can be used to read `amber.rst7`. The new, smaller, topology file will be written out
+using LEAP, but with a few thousand extra dummy waters tacked on to the end. No need to use AddToBox, all the dummy waters can be at XYZ=0,0,0. LEAP won't care, and you are going to strip them out anyway. Remember, `*.parm7` files do not contain coordinates. If for some reason the `xtal.prmtop` is missing or otherwise incompatible with `amber.rst7`, the `rst2pdb_runme.com` script will look for `padded.parm7` and strip out waters until it can be used to read `amber.rst7`. The new, smaller, topology file will be written out
 as `resized.parm7` as well as a shortened version of `orignames.pdb`. However, it is okay, and indeed recommended, for `orignames.pdb` to be longer than your active system. In fact, make it as big as `padded.parm7`.<br>
 
 You can change the output file prefix using `outpreifx=whatever`, or by specifying a pdb file name on the command line. In general, for all these scripts, any variable you see at the beginning of the script can be changed on the command line using the `variable=value` syntax.
 
-#### Abhoring the Vacuum
+#### Abhor a Vacuum
 The next thing you probably want to do is check to see if your current simulation has vacuum bubbles:
 ```
 bubble_check_runme.com amber.pdb Vwater=96 minvoid=5
 ```
-This will use `gemmi` to look for spaces between atoms and measure their volumes. In bulk water, there is about 96 A^3 of volume for each water molecule, which is the default for `Vwater`, so you don't have to specify it to take the default. The `minvoid` variable is the number of water molecules that a vacuum bubble can hold before it is considered a "void". How big are vacuum bubbles in normal bulk water at STP? I have no idea. But 5 strikes me as a bit much, so it is the default. If you have a vacuum bubble that can hold thousands of waters, then you might do well by filling it in.  This script will print out a reocmmended fill-in command, such as:<br>
+This will use `gemmi` to look for spaces between atoms and measure their volumes. In bulk water, there is about 96 A<sup>3</sup> of volume for each water molecule, which is the default for `Vwater`, so you don't have to specify it to take the default. The `minvoid` variable is the number of water molecules that a vacuum bubble can hold before it is considered a "void". How big are vacuum bubbles in normal bulk water at STP? I have no idea. But 5 strikes me as a bit much, so it is the default. If you have a vacuum bubble that can hold thousands of waters, then you might do well by filling it in.  This script will print out a reocmmended fill-in command, such as:<br>
 
 #### Hydrate
 The next thing you probably want to do is check to see if your current simulation has vacuum bubbles:
