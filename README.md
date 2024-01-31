@@ -6,7 +6,7 @@ Amber-oriented scripts for adjusting water count on-the-fly in a molecular dynam
 
 Getting the number of waters right in a constant-volume amber run is tricky. The pressure is
 a traditional indicator, but cannot always be trusted if you are using restraints. Trouble is,
-especially in the beginning of the run you usually want to have restraints to keep the molecule from 
+especially in the beginning of the run you probably want to have restraints to keep the molecule from 
 straying too far from it starting point before everything settles down. Unfortunately, the 
 number of waters is one of those things you need to decide at the very beginning, and then you 
 are married to it.<br>
@@ -37,17 +37,19 @@ these special waters dont get stripped out.
 * These are linux c-shell scripts, so you will need a working `/bin/tcsh`
 * `gemmi` to measure vacuum bubbles, which is distributed with the CCP4 suite
 * the Phenix Suite to probe electron density map values from your mtz file
-* `AMBER` and its tools installed, particularly cpptraj and parmed
+* `AMBER` and its tools installed, particularly `cpptraj` and `parmed`
 * an `*.rst7` AMBER restart file for your system, and the accompanying `*.parm7` topology file
 * an `orignames.pdb` file that contains all the original non-xyz information from the PDB file you initially gave to LEAP.
 * an optional `current_restraints.pdb` file, containing the names and xyz positions of your restraint reference points
-* You will also need to have prepared a "padded" topology file, which you can produce by adding ~50k dummy waters at the end of the PDB file you provide to LEAP. You only need to do this once. 
+* You will also need to have prepared a `padded.parm7` topology file, which you can produce by adding ~50k dummy waters at the end of the PDB file you provide to LEAP. You only need to do this once. 
 
 ### Installing
 
 * git clone this repo
 * copy all the files into somewhere in your shell `$PATH`, and make them executable:
-  chmod u+x *.com *.awk
+{
+    chmod u+x *.com *.awk
+}
 Yes, I know the extension says `*.com`, but these are not Windows executables. The use of `.com` to denote shell scripts pre-dates Windows.
 
 ### Executing program
