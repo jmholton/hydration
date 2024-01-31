@@ -47,9 +47,9 @@ these special waters dont get stripped out.
 
 * git clone this repo
 * copy all the files into somewhere in your shell `$PATH`, and make them executable:
-{
+```
     chmod u+x *.com *.awk
-}
+```
 Yes, I know the extension says `*.com`, but these are not Windows executables. The use of `.com` to denote shell scripts pre-dates Windows.
 
 ### Executing program
