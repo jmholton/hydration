@@ -105,7 +105,7 @@ water_teleport_runme.com amber.rst7 destinations.pdb maxmoves=10 \
   notthese=current_restraints.pdb
 ```
 The value of `maxmoves` is the maximum number of water molecules to teleport in this run.<br>
-The `destinations.pdb` file can be obtained from the original, refined and deposited structure, or perhaps a peak-pick of some density map. The Fobs-Fcalc map is one choice, but the Fobs map itself is another. Don't forget to symmetry-expand it to cover your simulation supercell first. Think of `destinations.pdb` as a list of suggested destinations for teleporting waters. The script will internally screen these sites for clashes before moving them.<br>
+The `destinations.pdb` file can be obtained from the original, refined and deposited structure, or perhaps a peak-pick of some density map. The Fobs-Fcalc map is one choice, but the Fobs map itself is another. Don't forget to symmetry-expand the list to cover your simulation supercell first. Think of `destinations.pdb` as a list of suggested destinations for teleporting waters. The script will internally score these sites by map density and screen them for clashes before moving anything.<br>
 The `notthese` variable indicates a PDB file containing the names of existing atoms that should not be teleported. Those involved in restraints are a good example of things that are a bad idea to teleport across the unit cell. The resulting restraint energy will be gigantic, and crash the simulation. Best to leave those alone. So, this script does that.<br>
 As a final check, this script will perform an energy minimization and display the total energy of the system before and after the teleport. Unless there is a bug, this step should be unexciting. You can disable these relatively time-consuming stages with `minimize=0` and `energycheck=0`<br>
 Where do the teleported waters come from?  Like the dehydration script above, they are chosen based on the difference density. This actually creates a subtle problem, which is that if you restrain the waters after teleporting them, like I do, then you create restraints at the end of the list, and that prevents successful dehydration runs.
@@ -113,23 +113,23 @@ To fix all this, one must re-organize the water list before each dehydration run
 
 
 #### Reorganize
-Which waters to reject? Turns out the pragmatic answer in AMBER is: the ones at the end. Effectively, no matter which waters you pick to reject, everything after them gets re-named. You can try doing things like keeping track of waters by name instead of by slot number in the `*.rst7` file, but, trust me, there madness lies. It is better to just periodically re-sort the whole list.
+Which waters to reject? Turns out the pragmatic answer in AMBER is: the ones at the end of the file. Effectively, no matter which waters you pick to reject, everything after them gets re-named. You can try doing things like keeping track of waters by name instead of by slot number in the `*.rst7` file, but, trust me, there madness lies. It is better to just periodically re-sort the whole list.
 ```
 remap_waters_runme.com amber.rst7 \
   mtzfile=phenixout.mtz mtzlabel=FOFCWT \
   restraints=current_restraints.pdb
 ```
-This script works much like the `dehydrate_amber_runme.com` script above, except that it does not reject any waters. Rather, it prepares for a dehydration run by re-organizing the waters first. It probes the provided difference map to sort all the waters, and puts the most disposable at the bottom of the file. This is all using the `cpptraj` "remap" feature. The other thing this script does is take all the atoms named in the `restraints=` file and remaps them to the top of the list, regardless of the density they are in.  This way they are least likely to interfere with stripping the very worst waters out of the system. This requies re-naming all the restrained atoms, and that  list is provided in the output file `remapped_restraints.pdb`
+This script works much like the `dehydrate_amber_runme.com` script above, except that it does not reject any waters. Rather, it prepares for a dehydration run by re-organizing the waters first. It probes the provided difference map to sort all the waters, and puts the most disposable at the bottom of the file. This is all using the `cpptraj` "remap" feature. The other thing this script does is take all the atoms named in the `restraints=` file and remaps them to the top of the list, regardless of the density they are in.  This way they are least likely to interfere with stripping the very worst waters out of the system. This requies re-naming all the restrained atoms, and that  list is provided in the output file `remapped_restraints.pdb`. Give this file to `dehydrate_amber_runme.com` as `notthese=remapped_restraints.pdb` along with the `remapped.rst7` AMBER restart file provided by this script.
 
 
 #### Grafting a PDB into AMBER without LEAP
-This is called by a few of the above scripts. In general, if you have made some changes to your system (such as adding or subtracting waters), but you don't want to re-run LEAP. And, in fact, you want to keep the velocities from the previous run and just keep going. Then this is the script for you.
+This is called by a few of the above scripts. In general, if you have made some changes to your system in PDB format (such as adding or subtracting waters), but you don't want to re-run LEAP. And, in fact, you want to keep the velocities from the previous run and just keep going. Then this is the script for you.
 ```
 graft_atoms_runme.com edited.pdb previous.rst7 outprefix=grafted 
 ```
 The protein atoms in `edited.pdb` must come in the same order as the ones in `previous.rst7`, but they can have different XYZ positions, and you can also have a differnet number of waters. If waters are missing from the end of `edited.pdb` then you will get a new system in `grafted.rst7` and `grafted.prmtop` that has the same number of waters. If you have extra waters in `edited.pdb`, and there is also a `padded.parm7` file available, then the output system in `grafted.rst7` and `grafted.prmtop` will have those new waters (albeit with zero velocity).  Using this new system, the `edited.pdb` file will effectively become the new `orignames.pdb`. However, as long as you don't mind the old names, the `rst2pdb_runme.com` will work very happily with an `orignames.pdb` that has more entries than it needs.
-
-
+<br>
+As a final check, this script will perform an energy minimization and display the total energy of the system before and after the teleport. Unless there is a bug, this step should be unexciting. You can disable these relatively time-consuming stages with `minimize=0` and `energycheck=0`<br>
 
 ## Help
 
