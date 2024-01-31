@@ -92,14 +92,17 @@ dehydrarte_amber_runme.com toowet.rst7 maxreject=10 outprefix=drier \
   mtzfile=phenixout.mtz mtzlabel=FOFCWT \
   notthese=current_restraints.pdb
 ```
-An excellent way to prioritize your waters is with a density map, such as from a phenix or refmac refinement of a recent snapshot, or, even better, the average density of the simulation trajectory to date, subtracted from the original 2mFo-Fc map obtained from the original refmac or phenix refinement of the starting structure, then you have an experimentaly-drived guide to which waters need to be there the least.  This script will probe the density map contained in the provided mtz file with all the water oxygen atoms from the `toowet.rst7` file.  The ones in the most-negative density will go first, with `maxreject` being the number of water molecules to discard.<br>
+An excellent way to prioritize your waters is with a density map, such as from a phenix or refmac refinement of a recent snapshot, or, even better, the average density of the simulation trajectory to date, subtracted from the original 2mFo-Fc map obtained from the original refmac or phenix refinement of the starting structure. With this map, you have an experimentaly-drived guide to which waters need to be there the least.  This script will probe the density map contained in the provided mtz file with all the water oxygen atoms from the `toowet.rst7` file.  The ones in the most-negative density will go first, with `maxreject` being the number of water molecules to discard.<br>
 If you have restraints, or some other reason not to reject particular waters, then provide them, by name, in a PDB file using `notthese=`. The names should correspond to those in the underlying `orignames.pdb` file, where the ordinal position of each atom in `orignames.pdb` corresponds to the ordinal list of coordinates in `toowet.rst7`. The caveat here, however, is that not only will any atom named in `notthese=` be protected from rejection, so will every atom that comes before them. This is because a `strip` operation effectively re-names every atom that comes after it. If one of those low-on-the-list atoms is involved in a restraint, then you will get an explosion. This script avoids such disasters by first determining which waters are "disposable". But, if the last water in the `*.rst7` file is restrained, nothing can be done. Not until you run the `remap_waters_runme.com` script below.  In general, it may be a good idea to always remap before dehydration.
 
 
 #### Teleportation
 All this re-sizing of parm files is not neccesary if you want to add and subract the same number of waters. This is equivalent to teleportation. A water will vanish from one part of the run and appear somewhere else. This is a good way to leap over barriers in the simulation. It can often be the case that a buried water was not included at the start of the run, and never gets populated by random diffusion. The opposite can also be true: a water may have gotten jammed inside of the protein, unable to escape. An excellent way to detect these kinds of problems is to use a difference map. That is, subtract the average density from the simulation so far (Fcalc) from the observed density (Fobs) to obtain an Fobs-Fcalc map. Positive features in this map are usually waters that need to be populated, and negative features are waters that don't belong. The one big no-no, however, would be to teleport a water on top of another one. That would be a disaster. So, you want to check that the way is clear before engaging the transporter device. This script automates all that.
 ```
-water_teleport_runme.com amber.rst7 destinations.pdb maxmoves=10 outfile=teleported.rst7 mtzfile=phenixout.mtz mtzlabel=FOFCWT notthese=current_restraints.pdb
+water_teleport_runme.com amber.rst7 destinations.pdb maxmoves=10 \
+  outfile=teleported.rst7 \
+  mtzfile=phenixout.mtz mtzlabel=FOFCWT \
+  notthese=current_restraints.pdb
 ```
 The value of `maxmoves` is the maximum number of water molecules to teleport in this run.<br>
 The `destinations.pdb` file can be obtained from the original, refined and deposited structure, or perhaps a peak-pick of some density map. The Fobs-Fcalc map is one choice, but the Fobs map itself is another. Don't forget to symmetry-expand it to cover your simulation supercell first. Think of `destinations.pdb` as a list of suggested destinations for teleporting waters. The script will internally screen these sites for clashes before moving them.<br>
@@ -112,7 +115,9 @@ To fix all this, one must re-organize the water list before each dehydration run
 #### Reorganize
 Which waters to reject? Turns out the pragmatic answer in AMBER is: the ones at the end. Effectively, no matter which waters you pick to reject, everything after them gets re-named. You can try doing things like keeping track of waters by name instead of by slot number in the `*.rst7` file, but, trust me, there madness lies. It is better to just periodically re-sort the whole list.
 ```
-remap_waters_runme.com amber.rst7 mtzfile=phenixout.mtz mtzlabel=FOFCWT restraints=current_restraints.pdb
+remap_waters_runme.com amber.rst7 \
+  mtzfile=phenixout.mtz mtzlabel=FOFCWT \
+  restraints=current_restraints.pdb
 ```
 This script works much like the `dehydrate_amber_runme.com` script above, except that it does not reject any waters. Rather, it prepares for a dehydration run by re-organizing the waters first. It probes the provided difference map to sort all the waters, and puts the most disposable at the bottom of the file. This is all using the `cpptraj` "remap" feature. The other thing this script does is take all the atoms named in the `restraints=` file and remaps them to the top of the list, regardless of the density they are in.  This way they are least likely to interfere with stripping the very worst waters out of the system. This requies re-naming all the restrained atoms, and that  list is provided in the output file `remapped_restraints.pdb`
 
