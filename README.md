@@ -131,6 +131,62 @@ The protein atoms in `edited.pdb` must come in the same order as the ones in `pr
 <br>
 As a final check, this script will perform an energy minimization and display the total energy of the system before and after the teleport. Unless there is a bug, this step should be unexciting. You can disable these relatively time-consuming stages with `minimize=0` and `energycheck=0`<br>
 
+#### converting and re-numbering pdb files
+This is an awk jiffy program for performing various re-formatting functions on a PDB file. It is designed primarily to deal with common re-formatting issues between the default representations in AMBER vs those of crystallographic refinement programs like the Phenix and CCP4 suites.  With no command-line options, it tries to convert an AMBER formatted pdb file into something `refmac` or `phenix.refine` can read. For example, it converts `WAT` into `HOH`, and the N-terminal `H1` atom on each chain will be changed to just `H`, which `refmac` expects. It also changes the `HID/HIP/HIE` histidine residues into just plain `HIS`, and also changes `CYX` to `CYS` and `ASH` and `GLH` to `ASP` and `GLU`.  Run it like this:
+```
+% convert_pdb.awk -v output=amber refmacout.pdb > tleapme.pdb
+```
+This will do things like change the N-terminal `H` atom into the `H1` that tleap expects. Change `HOH` to `WAT`, and `NH4` to `AMM`, and `ACY` to `ACT`. Information about the protonation state can be provided with keywords prepended to the PDB file, such as:
+```
+echo "PROTON A324" | cat - refmacout.pdb | convert_pdb.awk -v output=amber > tleapme.pdb
+```
+You can also begin a line with `HID `, `HIE ` or `HIP ` to specify residue IDs (chain letter and residue number) to be given a non-default protonation state.<br>
+
+
+
+#### compact residue numbers
+This is an awk jiffy program for dealing with the problem of repesenting more than 9999 residues in a PDB format file. The output of programs like `cpptraj` curently just give you modulo 10000 values, which makes some downstream programs like `phenix.refine` or `refmac` unhappy with the duplicate residue names. One way to fix this is to use the extra space to the right of the 4-character residue number in the PDB file format, but few programs recognize this. Another, more widespread trick is called "hybrid 36" encoded values. This combines letters and numbers to form up to up to 2436111 residue numbers, and programs like gemmi, phenix and the CCP4 suite do work with these encoded values. So, I wrote a fast jiffy script for either sequentially re-numbering all residues as hy36, or for turning 8-character-wide residue numbers into hy36. Run it like this:
+```
+hy36_encode.awk -v ordinal=1 cpptraj_out.pdb > unique_resnums.pdb
+```
+This will re-number all residues starting at 1, ticking up the counter every time the 8-character string starting at column 23 changes from the previous line. The ordinal residue number is then packed into a 4-letter hy36 string in the usual residue number place. I also append the ordinal residue number in ordinary digits form at the end of each line.  If you do not set `ordinal=1` then the residue numbers are read by interpreting an 8-character wide string starting at column 23 as an integer.
+
+
+
+
+#### rmsd
+This is an awk jiffy program for computing the Root Mean Square Deviation between two PDB files. Unlike some other programs no attempt is made to align the models to minimize this difference. All this program does is look for pairs of atoms with the same name and compares the XYZ positions, and also any changes in B factor or occupancy. By "same name" I mean the 17-character string starting at column 12 on each line beginning with "ATOM" or "HETATM". The order does not matter, and it will complain if there is only one or more than two copies of a given atom.  Run it like this:
+```
+% rmsd original.pdb modified.pdb
+2050 atom pairs found
+RMSD(CA )= 0.00909198 (128 CA pairs)
+RMSD(all)= 0.0117287 (2050 atom pairs)
+RMSD(Bfac)= 0.0494906
+MAXD(all)= 0.105669	for  HH12AARG A  18   
+MAXD(Bfac)= -0.45	for   OE2AGLU A  32   
+```
+Because it is an awk program, it can also natively take the two PDB files as a stream on standard input. If you set the "xlog" variable the above summary will be listed on one line:
+```
+% rmsd -v xlog=1 original.pdb modified.pdb
+0.00909198 0.01172872    0.00000   0.0495     0.1057    0.000   -0.450
+```
+And if you set the `debug` variable, each individual difference will be listed, allowing you to sort it.<br>
+```
+%egrep -vh "HOH|     H" original.pdb modified.pdb | rmsd -v debug=1 | sort -k1.25g | grep moved | tail
+  CD AARG A  18    moved   0.0552 (XYZ)   0.00 (occ)   0.10 (B) at cen_x   -0.815   9.507 -13.204
+  NE AARG A  18    moved   0.0556 (XYZ)   0.00 (occ)  -0.02 (B) at cen_x   -0.504   8.078 -13.274
+  O  BLYS B  30    moved   0.0587 (XYZ)   0.00 (occ)   0.02 (B) at cen_x   -7.453  -1.368   4.529
+  OE2AGLU A  32    moved   0.0591 (XYZ)   0.00 (occ)  -0.45 (B) at cen_x  -10.790   6.916   5.851
+  O  ALYS A  50    moved   0.0628 (XYZ)   0.00 (occ)  -0.02 (B) at cen_x   -6.177   1.199   6.948
+  NH2AARG A  18    moved   0.0665 (XYZ)   0.00 (occ)   0.04 (B) at cen_x   -0.888   5.829 -13.046
+  O  BLYS B  50    moved   0.0685 (XYZ)   0.00 (occ)  -0.13 (B) at cen_x   -6.144   1.414   6.980
+  CZ AARG A  18    moved   0.0695 (XYZ)   0.00 (occ)   0.02 (B) at cen_x   -1.303   7.084 -12.897
+  OE1AGLU A  32    moved   0.0787 (XYZ)   0.00 (occ)  -0.29 (B) at cen_x   -8.762   7.280   5.083
+  NH1AARG A  18    moved   0.0939 (XYZ)   0.00 (occ)   0.20 (B) at cen_x   -2.505   7.304 -12.378
+```
+There are indeed other ways to do all these things, but this program is needed in the `$PATH` so it can be called by the above scripts.
+
+
 ## Help
 
 Let me know if you have any questions or find any bugs.  In general, debugging information is provided by adding the command-line option: `debug=1`, and possibly `tempfile=temp` to change the default temporary file prefix.
