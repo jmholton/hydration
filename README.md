@@ -4,7 +4,7 @@ Amber-oriented scripts for adjusting water count on-the-fly in a molecular dynam
 
 ## Motivation
 
-Getting the number of waters right in a constant-volume amber run is tricky. The pressure is
+Getting the number of waters right in a constant-volume MD run is tricky. The pressure is
 a traditional indicator, but cannot always be trusted if you are using restraints. Trouble is,
 especially in the beginning of the run you probably want to have restraints to keep the molecule from 
 straying too far from it starting point before everything settles down. Unfortunately, the 
@@ -78,7 +78,7 @@ This will use `gemmi` to look for spaces between atoms and measure their volumes
 #### Hydrate
 Here is how you fill in those vacuum bubbles:
 ```
-hydrarte_runme.com amber.pdb nadd=1000 outrst=wetter.rst7 outtop=xtal.prmtop
+hydrarte_runme.com amber.pdb amber.rst7 nadd=1000 outrst=wetter.rst7 outtop=xtal.prmtop
 ```
 The output will be the result of running the AmberTools AddToBox program.  The last molecule in `amber.pdb` is extracted and taken as the "water" to add, thus preserving any extra points. In the end, you will have a new restart file, including velocities, and topology file to continue your simulation, but now with a few more waters. The filename values in the above command are the defaults. The key to adding in new waters to an AMBER parm file is the unmentioned `padded.parm7` file. The script will complain and exit if you don't have `padded.parm7`. It works by not adding extra waters to your previous `*.parm7` file, but rather by stripping an appropriate number of waters out of `padded.parm7` so that it is compatible with the new number of waters.<br> 
 All new waters are given zero velocity, but will quickly heat up when the simulation restarts. I have not seen any need for an explicit re-heating protocol in my simulations so far.<br>
@@ -144,7 +144,6 @@ You can also begin a line with `HID `, `HIE ` or `HIP ` to specify residue IDs (
 You can also set other variables for different behaviors:<br>
 * `only=protein` will print out only residues types known to be non-exotic amino acids
 * `skip=water,H,EP` will skip all `HOH` residues, as well as leave out all hydrogen and extra-point atoms
-* `fixEe=1` will justify 2-letter residue types, and element symbols as they are output by refmac.
 * `fixEe=1` will justify 2-letter residue types, and element symbols as they are output by refmac.
 * `append=ordresnum` will append the oridnal residue number at the end of each line
 * `append=origid` will append the original, unmodified atom,type,chain,resnum string to the end of each line

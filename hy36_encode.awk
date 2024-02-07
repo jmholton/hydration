@@ -1,11 +1,9 @@
 #! /bin/awk -f
 #
-#  jiffy script for re-numbering large PDB files        -James Holton 1-31-24
-#  code adopted from https://cci.lbl.gov/hybrid_36/
+#  jiffy script for re-numbering and filtering large PDB files in differnt conventions
 #
 #
 BEGIN{
-   if(! ordinal) ordinal=0
 }
 
 ! /^ATOM|HETAT/{print;next}
@@ -16,25 +14,16 @@ BEGIN{
     if(debug) print "DEBUG" substr($0,6);
     pre=substr($0,1,22);
     post=substr($0,31);
-    prevnum=resnum;
     resnum=substr($0,23,8);
-    oresnum=resnum;
-    if(ordinal){
-      if(resnum!=prevnum){
-        prevnum=resnum;
-        ++rescounter;
-      }
-      oresnum=rescounter;
-    }
     if(resnum~/[A-Za-z]/) {
       gsub(" ","",resnum);
-      oresnum=hy36decode(resnum);
+      resnum=hy36decode(resnum);
     }
-    code=hy36encode(oresnum+0);
-    printf("%s%4s    %s       %d\n",pre,code,post,oresnum);
+    code=hy36encode(resnum+0);
+    printf("%s%4s    %s       %d\n",pre,code,post,resnum);
 }
 
-# these seem to work
+# these are not yet fully functional
 function hy36decode( code )
 {
   if(! match(code,/[A-Za-z]/)) return code;
