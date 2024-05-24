@@ -76,6 +76,8 @@ foreach Arg ( $* )
 end
 
 if( $debug && $tempfile =~ /dev/shm/* ) set tempfile = ./teletemp_
+set tmpdir = `dirname $tempfile`
+if("$tmpdir" != "") mkdir -p "$tmpdir"
 
 if(! -e "$rstfile" || ! -e "$fullref" ) then
     set BAD = "no coordinates provided"
@@ -111,9 +113,9 @@ if(-e "$notthese" && -e "$fullref" && ! -e "$pdbfile" ) then
     ! /HOH|EDO|NH4| CL | LI /{next}\
     {xyz=substr($0,31,24);++seen[xyz]}\
    END{for(xyz in seen)if(seen[xyz]==1){\
-    printf("ATOM      1  O   HOH z%8d%s  1.00  0.00\n",++n,xyz)}}' |\
-  convert_pdb.awk -v renumber=w4,rechain,ordinal -v only=atoms |\
-  cat >! ${t}selected_refpoints.pdb
+    printf("ATOM      1  O   HOH z%8d%s  1.00  0.00           O         \n",++n,xyz)}}' |\
+  hy36_encode.awk |\
+  cat >! ${t}input_refpoints.pdb
 endif
 
 if(-e "$pdbfile") then
@@ -121,12 +123,12 @@ if(-e "$pdbfile") then
   cat $pdbfile |\
    awk '! /^ATOM|^HETAT/{next}\
     {xyz=substr($0,31,24);\
-    printf("ATOM      1  O   HOH z%8d%s  1.00  0.00\n",++n,xyz)}' |\
-  convert_pdb.awk -v renumber=w4,rechain,ordinal -v only=atoms |\
-  cat >! ${t}selected_refpoints.pdb
+    printf("ATOM      1  O   HOH z%8d%s  1.00  0.00           O         \n",++n,xyz)}' |\
+  hy36_encode.awk |\
+  cat >! ${t}input_refpoints.pdb
 endif
 
-set num = `cat ${t}selected_refpoints.pdb | wc -l`
+set num = `cat ${t}input_refpoints.pdb | wc -l`
 echo "$num points are selected"
 
 
@@ -145,7 +147,18 @@ cat >! ${t}hy36.pdb
 
 echo "looking for potential new clashes with selected goal points"
 egrep "^CRYST" $fullref >! ${t}gemmime.pdb
-cat ${t}hy36.pdb ${t}selected_refpoints.pdb |\
+if( $status ) then
+   egrep "^CRYST" $pdbfile >! ${t}gemmime.pdb
+endif
+if( $status ) then
+   egrep "^CRYST" ${t}cpptraj.pdb >! ${t}gemmime.pdb
+endif
+egrep "^CRYST" ${t}gemmime.pdb > /dev/null
+if( $status ) then
+   set BAD = "cannot find CRYST1"
+   goto exit
+endif
+cat ${t}hy36.pdb ${t}input_refpoints.pdb |\
 cat  >> ${t}gemmime.pdb
 gemmi contact -d 4 --sort --ignore=3 ${t}gemmime.pdb >! ${t}gemmiclash.log
 grep "HOH z" ${t}gemmiclash.log |\
@@ -154,10 +167,10 @@ awk -v debug=$debug 'debug>1{print $0,"DEBUG IN"}\
    resid=substr(seg2,index(seg2,"HOH z")+5,8);\
    print resid "|  " $NF+0,"DIST";}' |\
 awk '! seen[$1]{print;++seen[$1]}' |\
-cat - ${t}selected_refpoints.pdb |\
+cat - ${t}input_refpoints.pdb |\
 awk '$NF=="DIST"{resid=$1;dist[resid]=$3;next}\
  ! /^ATOM|^HETAT/{next}\
-   {resid=substr($0,23,6)+0}\
+   {resid=substr($0,23,6)+0;resid=$NF}\
   dist[resid]==""{dist[resid]=999}\
   {print substr($0,1,80)," ",dist[resid]}' |\
 sort -k1.81gr >! ${t}open_refpoints.pdb
@@ -206,10 +219,13 @@ awk -v debug=$debug 'debug>1{print $0,"DEBUG IN"}\
   deleted[resid1]{next}\
   {print resid2 "|" resid1 "|  " $NF+0,"CLASH";++printed[resid1]}' |\
 cat >! ${t}clashes.txt 
-cat ${t}clashes.txt  ${t}candidate_refpoints.pdb |\
+
+# decode resids
+hy36_encode.awk ${t}candidate_refpoints.pdb |\
+cat ${t}clashes.txt - |\
 awk '$NF=="CLASH"{++bad[$1];next}\
   ! /^ATOM|^HETAT/{print;next}\
-  {resid=substr($0,23,8)+0}\
+  {resid=$NF}\
   bad[resid]{next}\
   {print}' |\
 cat >! ${t}declashed.pdb
@@ -332,6 +348,12 @@ if( $status || ! -e "$outfile") then
   goto exit
 endif
 
+if( $minimize ) then
+  awk '/^minimizing/,/^appending/' ${t}graft.log
+endif
+if( $energycheck ) then
+  awk '/^energy/,/^now/' ${t}graft.log
+endif
 
 # now remap those new reference points?
 

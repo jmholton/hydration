@@ -7,12 +7,15 @@ set rstfile  = ""
 set parmfile  = xtal.prmtop
 set paddedparm  = padded.parm7
 set orignames = orignames.pdb
+set Bfactors = Bfac.pdb
 set outprefix = ""
 set pdbfile = ""
 
 # will be created from paddedparm and orignames if needed
 set newparm = resized.parm7
 set neworig = new_orignames.pdb
+
+set make_new_orig = 0
 
 set quiet = 0
 set debug = 0
@@ -136,7 +139,7 @@ EOF
     set origres = `awk '/^ATOM|^HETAT/{print substr($0,17,12)}' $orignames | sort -u | wc -l`
     echo "$origres residues in $orignames"
   endif
-  if( $newres < $origres ) then
+  if( $newres < $origres && $make_new_orig ) then
     echo "stripping and re-counting $orignames -> $neworig"
     egrep "^CRYST|^ATOM|^HETAT|^SSBO|^LINK" $orignames |\
     awk '{print substr($0,1,80)}' |\
@@ -149,7 +152,7 @@ EOF
   endif
 endif
 
-egrep "^SSBOND|^LINK|^CRYST" $orignames >! ${outprefix}.pdb
+egrep "^SSBOND|^LINK|^CRYST" $orignames >! ${t}out.pdb
 # take coordinates only, using names from starting point
 awk '/^ATOM|^HETAT/{print $0,"ORIG"}' $orignames |\
 cat - ${t}.pdb |\
@@ -159,10 +162,34 @@ awk '$NF=="ORIG"{++o;pre[o]=substr($0,1,30);post[o]=substr($0,55,length($0)-55-4
       pre[n]==""{print "REMARK WARNING atom",n,"missing from orignames.pdb";\
        pre[n]=substr($0,1,30);post[n]=substr($0,55)}\
       {printf("%s%s%s\n",pre[n],substr($0,31,24),post[n])}' |\
-cat >> ${outprefix}.pdb
+cat >> ${t}out.pdb
 
-grep "WARNING" ${outprefix}.pdb
+grep "WARNING" ${t}out.pdb
 if( ! $status ) set MISSING
+
+if(-e "$Bfactors" ) then
+    echo "applying B factors from $Bfactors"
+    egrep "^SSBOND|^LINK|^CISP|^CRYST" $Bfactors >! ${t}Bfac.pdb
+    # take coordinates only, using names from starting point
+    awk '/^ATOM|^HETAT/{print $0,"ORIG"}' $Bfactors |\
+    cat - ${t}out.pdb |\
+    awk '$NF=="ORIG"{++o;pre[o]=substr($0,1,30);post[o]=substr($0,55,length($0)-55-4);next}\
+      ! /^ATOM|^HETAT/{next}\
+          {++n;resid=substr($0,22,9)}\
+          lastres!=resid{lastres=resid;++ordresnum}\
+          pre[n]==""{print "REMARK WARNING atom",n,"missing from orig, max="o;\
+           pre[n]=substr($0,1,30);post[n]=substr($0,55)}\
+          {printf("%s%s%s\n",pre[n],substr($0,31,24),post[n])}' |\
+    cat >> ${t}Bfac.pdb
+
+    grep "WARNING" ${t}Bfac.pdb
+    if( ! $status ) set MISSING
+
+    cp ${t}Bfac.pdb ${outprefix}.pdb
+else
+    cp ${t}out.pdb ${outprefix}.pdb
+endif
+
 
 if( $?RESIZE || $?MISSING ) then
 echo "suggestions:"
@@ -217,4 +244,6 @@ cat renumberme.pdb |\
 convert_pdb.awk -v renumber=ordinal,w4,watS,chain,chainrestart -v fixEe=1 \
   -v append=ordresnum >! padded_orignames.pdb
 
+append_file_date.com orignames.pdb
 
+# cp padded_orignames.pdb orignames.pdb

@@ -386,12 +386,12 @@ awk '{print "now:",$0}' ${t}energy.dat | tail -n 1
 
 wc $rstfile $outrst
 
-set natoms = `egrep "^ATOM|^HETAT" $pdbfile | wc -l`
-set oatoms = `egrep "^ATOM|^HETAT" $orignames.pdb | wc -l`
-if("$pdbfile" != "orignames.pdb" && $natoms > $oatoms ) then
-   echo "suggestions:"
-   echo "cp $pdbfile orignames.pdb"
-endif
+#set natoms = `egrep "^ATOM|^HETAT" $pdbfile | wc -l`
+#set oatoms = `egrep "^ATOM|^HETAT" orignames.pdb | wc -l`
+#if("$pdbfile" != "orignames.pdb" && $natoms > $oatoms ) then
+#   echo "suggestions:"
+#   echo "cp $pdbfile orignames.pdb"
+#endif
 
 exit:
 

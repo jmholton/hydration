@@ -102,6 +102,11 @@ BEGIN{
   ++hip[resid];
   next
 }
+/^CYX/{
+  resid= substr($2,1,1)" "substr($2,2);
+  ++cyx[resid];
+  next
+}
 
 /^ONLY/{only = ","$2",";next}
 /^SKIP/{skip = ","$2",";next}
@@ -152,9 +157,9 @@ BEGIN{
     atom=substr($0,12,5);
       atm=atom;gsub(" ","",atm);
     resnum=substr($0,23,8);
-    if(resnum~/[A-Za-z]/) {
+    if(substr(resnum,1,4)~/[A-Za-z]/) {
       gsub(" ","",resnum);
-      resnum=hy36decode(resnum);
+      resnum=encresnum=hy36decode(resnum);
     }
     resnum+=0; resnum0=resnum;
     chain = chain0 = substr($0,22,1);
@@ -308,7 +313,7 @@ typ=="NH4" && atm=="H3"  {atom=" HN3 "}
 typ=="NH4" && atm=="H4"  {atom=" HN4 "}
 
 
-output=="amber" && typ=="ACY" { typ="ACT" }
+output=="amber" && typ=="ACY" && ! norenamelig { typ="ACT" }
 typ=="ACT" && atm=="H1" {atom=" HB1 "}
 typ=="ACT" && atm=="H2" {atom=" HB2 "}
 typ=="ACT" && atm=="H3" {atom=" HB3 "}
@@ -317,7 +322,7 @@ typ=="ACT" && atm=="CH3"{atom=" CB  "}
 typ=="ACT" && atm=="O"  {atom=" OA1 "}
 typ=="ACT" && atm=="OXT"{atom=" OA2 "}
 
-output=="amber" && typ=="NH4" { typ="AMM" }
+output=="amber" && typ=="NH4" && ! norenamelig { typ="AMM" }
 typ=="AMM" && atm=="HN1" {atom=" H1  "}
 typ=="AMM" && atm=="HN2" {atom=" H2  "}
 typ=="AMM" && atm=="HN3" {atom=" H3  "}
@@ -333,6 +338,8 @@ proton[resid] && typ~/HI[SDEP]/ {typ="HIP"}
 hid[resid] && typ~/HI[SDEP]/ {typ="HID"}
 hie[resid] && typ~/HI[SDEP]/ {typ="HIE"}
 hip[resid] && typ~/HI[SDEP]/ {typ="HIP"}
+
+cyx[resid] && typ~/CY[XS]/ {typ="CYX"}
 
 # ignore special hydrogens
 typ=="HID" && atm=="HE2"{next}
@@ -362,6 +369,7 @@ mapping[ordresnum] {
 
 # user selected funky hex-like chain numbers if they get too big
 ! locked && hy36 {
+    encresnum = hy36decode( resnum );
     resnum = hy36encode( resnum );
 }  
 
@@ -600,6 +608,9 @@ fixEe && atm == Ee {
 append ~ /,ordresnum,/ {
    apdx = apdx" "sprintf("%10s",ordresnum)
 }
+append ~ /,encresnum,/ {
+   apdx = apdx" "sprintf("%10s",encresnum)
+}
 append ~ /,origid,/ {
    apdx = apdx"     |" origid;
 }
@@ -647,33 +658,38 @@ END{
 }
 
 
-# these are not yet fully functional
+# these work, but gemmi cannot understand lower case
 function hy36decode( code )
 {
   if(! match(code,/[A-Za-z]/)) return code;
   udigits="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  ldigits=tolower(udigits);
   n=length(code);
   value=0;
   ucode=toupper(code);
+  m=match(code,/[a-z]/);
   for(i=1;i<=n;++i) {
     c = substr(ucode,i,1);
-    value+=(index(udigits,c)-1)*(36**(n-i));
+    q=index(udigits,c);
+    #print "DEBUG: c=",c,"q=",q;
+    value+=(q-1+m*35)*(36**(n-i));
   }
-  return value - 10*36**(n-1) + 10**n;
+  #print "DEBUG:",value,n,m
+  return value - (1+m)*10*36**(n-1) + 10**n + m;
 }
 
 function hy36encode( value )
 {
-  if(value < 10000) return value;
-
   n=4;code="";
-  value = value + 10*36**3 - 10**n;
-  udigits="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  ldigits=tolower(udigits);
+  digits = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  if(value < 10**n) return value;
+
+  value = value + 10*36**(n-1) - 10**n;
+  #print "DEBUG: value=",value;
+  if(value>=36**n){digits=tolower(digits);value=value-36**4+10*36**(n-1)};
   for(i=1;i<=n;++i) {
     q = int( value / 36**(n-i) )
-    c = substr(udigits,q+1,1);
+    c = substr(digits,q+1,1);
+    #print "DEBUG: value=",value,"c=",c,"q=",q;
     code = code c;
     value = value - q*36**(n-i)
   }

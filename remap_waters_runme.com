@@ -199,6 +199,7 @@ echo "   old id       new id      old      new"
 head -n 1 ${t}newnames.txt
 tail -n 1 ${t}newnames.txt
 
+cp ${t}newnames.txt ${outprefix}_pairs.txt
 
 
 if(! -e "$restraints") goto renameorig

@@ -14,7 +14,7 @@ set newB =   ""
 
 set maxocc = 1
 set minocc = 0
-set maxB   = 999
+set maxB   = 999.99
 set minB   = 0
 
 set saveXYZ = 0
@@ -65,6 +65,9 @@ saveB    - use B from ref.pdb
 EOF
     exit 9
 endif
+
+if( $xor ) set printref = 1
+
 
 cat << EOF
 splicing $pdbs into $refpdb

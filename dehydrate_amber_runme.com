@@ -58,6 +58,11 @@ end
 
 if( "$parmfile" == "" ) set parmfile = xtal.prmtop
 
+if( ! -e "$mtzfile" ) then
+    set BAD = "cannot score waters without an mtz file"
+    goto exit
+endif
+
 if( $debug && $tempfile =~ /dev/shm/* ) set tempfile = tempfile_dry_
 
 if(! $quiet) then
@@ -130,7 +135,7 @@ phenix.map_value_at_point $mtzfile ${t}disposable.pdb \
 cat ${t}map_values.log ${t}disposable.pdb |\
 awk '/Map value:/{++n;rho[n]=$NF;next}\
   ! /^ATOM|^HETAT/{next}\
-  {++i;orn=$NF;print rho[i],orn}' |\
+  {++i;orn=$NF;print rho[i]+0,orn}' |\
 sort -g >! ${t}water_rhos.txt
 head -n $maxreject ${t}water_rhos.txt |\
 awk '$1<0 && NF==2' >! ${t}strip_water.txt 

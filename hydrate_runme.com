@@ -170,14 +170,14 @@ combine_pdbs_runme.com $restraints $outpdb \
   awk '{print substr($0,1,80)}' >! ${t}refpoints.pdb
 
 cpptraj -p $outtop -y ${t}refpoints.pdb << EOF >> ${t}mkref.log
-trajout ref.rst7
+trajout ${t}ref.rst7
 EOF
 if( $status ) then
   cat ${t}mkref.log
   set BAD = "updating ref.crd failed"
   goto exit
 endif
-if(! -e ref.crd) ln -sf ref.rst7 ref.crd
+mv ${t}ref.rst7 ref.crd
 
 
 
