@@ -14,6 +14,7 @@ BEGIN{
 
    # minimum residue number
    if(minresnum=="") minresnum = 1;
+   if(maxchain4resnum=="") maxchain4resnum=9999;
 
    # default to try to remove duplicates
    if(dedupe=="") dedupe = 1;
@@ -374,24 +375,24 @@ mapping[ordresnum] {
 }  
 
 # user selected renumber, but always fit resnum in 4 ltters
-! locked && w4 && length(resnum)>4 || dedupe && seen[id] && ! rechain {
+! locked && w4 && resnum>maxchain4resnum || dedupe && seen[id] && ! rechain {
   id= atm" "chain" "resnum;
   oresid=   chain" "resnum;
   # register this as seen, even if we didnt print it
-  if(length(resnum)>4) {
+  if(resnum>maxchain4resnum) {
     if(debug>5) print "DEBUG: too long resnum",id;
     id= atm" "chain" "resnum;
     if(debug>5) print "DEBUG: trying",id;
     ++seen[id];
   }
   # try keeping original?
-  if( seen[id] && ! ordinal && length(resnum0)<=4 ) {
+  if( seen[id] && ! ordinal && resnum<=maxchain4resnum ) {
     resnum=resnum0;
     id= atm" "chain" "resnum;
     oresid=   chain" "resnum;
     if(debug>5) print "DEBUG: trying original resnum:",id;
   }
-  if( seen[id] && ! ordinal && length(resnum0)<=4 ) {
+  if( seen[id] && ! ordinal && resnum<=maxchain4resnum ) {
     chain=chain0;
     resnum=resnum0;
     id= atm" "chain" "resnum;
@@ -399,7 +400,7 @@ mapping[ordresnum] {
     if(debug>5) print "DEBUG: trying original chain and resnum:",id;
   }
   # try incrementing previous
-  if((length(resnum)>4 || seen[id] || taken[oresid]) && prevoresnum) {
+  if((resnum>maxchain4resnum || seen[id] || taken[oresid]) && prevoresnum) {
      if(debug>5) print "DEBUG: seen["id"]=",seen[id],"taken["oresid"]=",taken[oresid];
      resnum=prevoresnum+1;
      id= atm" "chain" "resnum;
@@ -407,7 +408,7 @@ mapping[ordresnum] {
      if(debug>5) print "DEBUG: trying incremented previous output resnum:",id;
   }
   # try incrementing previous while keeping previous chain
-  if((length(resnum)>4 || seen[id] || taken[oresid]) && prevochain && prevoresnum) {
+  if((resnum>maxchain4resnum || seen[id] || taken[oresid]) && prevochain && prevoresnum) {
      chain=prevochain;
      resnum=prevoresnum+1;
      id= atm" "chain" "resnum;
@@ -415,7 +416,7 @@ mapping[ordresnum] {
      if(debug>5) print "DEBUG: trying previous chain and incremented previous resnum:",id;
   }
   # start at zero if still no good
-  if(length(resnum)>4 || seen[id] || taken[oresid]) {
+  if(resnum>maxchain4resnum || seen[id] || taken[oresid]) {
     resnum=minresnum;
     id= atm" "chain" "resnum;
     oresid=   chain" "resnum;
@@ -427,19 +428,19 @@ mapping[ordresnum] {
     ++resnum;
     id= atm" "chain" "resnum;
     oresid=   chain" "resnum;
-    if(length(resnum)>4) {
+    if(resnum>maxchain4resnum) {
       # too big, so pretend we printed it
       ++seen[id];
       break;
     }
   }
   # again, try keeping original number if ordinal counter not selected
-  if(length(resnum)>4 && ! ordinal) resnum=resnum0;
+  if(resnum>maxchain4resnum && ! ordinal) resnum=resnum0;
   # if being ordinal, reset to zero
-  if(length(resnum)>4) resnum=minresnum ;
+  if(resnum>maxchain4resnum) resnum=minresnum ;
   id= atm" "chain" "resnum;
   oresid=   chain" "resnum;
-  if(length(resnum)>4) ++taken[oresid];
+  if(resnum>maxchain4resnum) ++taken[oresid];
   while(seen[id] || taken[oresid]){
     if(debug>5) print "DEBUG: seen["id"]=",seen[id],"taken["oresid"]=",taken[oresid]
     # now loop over chains
@@ -458,21 +459,21 @@ mapping[ordresnum] {
     };
     id= atm" "chain" "resnum;
     oresid=   chain" "resnum;
-    if(length(resnum)>4) ++taken[oresid];
+    if(resnum>maxchain4resnum) ++taken[oresid];
     if(debug>5) print "DEBUG: seen["id"]=",seen[id],"taken["oresid"]=",taken[oresid]
     if(seen[id] && renumber !~ /,ordinal,/) {
       # try keeping original resnum
       resnum=resnum0;
       id= atm" "chain" "resnum;
       oresid=   chain" "resnum;
-      if(length(resnum)>4) ++taken[oresid];
+      if(resnum>maxchain4resnum) ++taken[oresid];
     }
     while(seen[id] || taken[oresid]){
       if(debug>5) print "DEBUG: seen["id"]=",seen[id],"taken["oresid"]=",taken[oresid]
       ++resnum;
       id= atm" "chain" "resnum;
       oresid=   chain" "resnum;
-      if(length(resnum)>4) {
+      if(resnum>maxchain4resnum) {
         ++seen[id];
         break;
       }
@@ -488,7 +489,7 @@ mapping[ordresnum] {
       ++resnum;
       id= atm" "chain" "resnum;
       oresid=    chain" "resnum;
-      if(length(resnum)>4) {
+      if(resnum>maxchain4resnum) {
         ++seen[id];
         break;
       }

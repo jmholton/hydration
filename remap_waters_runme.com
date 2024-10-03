@@ -1,13 +1,14 @@
 #! /bin/tcsh -f
 #
-#  reorganize all waters, moving restrained and high-density ones to top     -James Holton 1-5-24
-#
+#  reorganize all waters, moving restrained and high-density ones to top     -James Holton 8-15-24
+#  stil need to move B factors to follow
 #
 #
 set parmfile = xtal.prmtop
 set rstfile = ""
 set restraints = current_restraints.pdb
 set orignames  = orignames.pdb
+set Bfac_file  = Bfac.pdb
 
 set remap_restraints = all
 set remap_density = all
@@ -202,6 +203,24 @@ tail -n 1 ${t}newnames.txt
 cp ${t}newnames.txt ${outprefix}_pairs.txt
 
 
+if(-e "$Bfac_file") then
+  echo "re-mapping water B factors in $Bfac_file"
+  awk '/^ATOM|^HETAT/ && /HOH/{print $NF,"|",substr($0,61,6),"| BFAC"}' $Bfac_file |\
+  cat - ${t}newnames.txt |\
+  awk -F "|" '/BFAC$/{Bfac[$1+0]=$2;next}\
+    /RENAME/ && Bfac[$3+0]!=""{print $4,Bfac[$3+0],"NEWB"}' |\
+  cat - $Bfac_file |\
+  awk '$NF=="NEWB"{newB[$1]=$2;next}\
+    ! /^ATOM|^HETAT/ || ! /HOH/{print;next}\
+    newB[$NF]==""{print "REMARK WARNING: no new B for",$NF}\
+    newB[$NF]==""{newB[$NF]=substr($0,61,6)}\
+    {pre=substr($0,1,60);post=substr($0,67);\
+     printf("%s%6.2f%s\n",pre,newB[$NF],post)}' |\
+  cat >! ${outprefix}_Bfac.pdb
+  echo "recommend: cp ${outprefix}_Bfac.pdb $Bfac_file"
+endif
+
+
 if(! -e "$restraints") goto renameorig
 echo "re-naming waters in $restraints -> ${outprefix}_restraints.pdb"
 egrep -v "HOH|TER|END" $restraints >! ${outprefix}_restraints.pdb
@@ -222,7 +241,7 @@ endif
 
 
 renameorig:
-if(! -e "$orignames") goto renamerst
+if(1 || ! -e "$orignames") goto renamerst
 set nres  = `awk '/^ATOM|^HETAT/{print substr($0,17,12)}' ${t}labeled.pdb | sort -u | wc -l`
 echo "re-naming waters in $orignames -> ${outprefix}_orignames.pdb"
 egrep -v "HOH|TER|END" $orignames >! ${outprefix}_orignames.pdb

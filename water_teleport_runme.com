@@ -19,6 +19,7 @@ set minimize = 1
 set energycheck = 1
 
 set outfile = teleported.rst7
+set outref = teleported_restraints.pdb
 
 set mtzfile = cootme.mtz
 set mtzlabel = DELFWT
@@ -109,8 +110,8 @@ if(-e "$notthese" && -e "$fullref" && ! -e "$pdbfile" ) then
 # look for orphan reference points
   echo "extracting goal points from $fullref that are not in $notthese"
   cat $notthese $fullref |\
-   awk '! /^ATOM|^HETAT/{next}\
-    ! /HOH|EDO|NH4| CL | LI /{next}\
+   awk '! /^ATOM|^HETAT/{next} {typ=" "substr($0,18,3)" "}\
+    typ !~ /HOH|EDO|NH4| CL | LI /{next}\
     {xyz=substr($0,31,24);++seen[xyz]}\
    END{for(xyz in seen)if(seen[xyz]==1){\
     printf("ATOM      1  O   HOH z%8d%s  1.00  0.00           O         \n",++n,xyz)}}' |\
@@ -118,12 +119,25 @@ if(-e "$notthese" && -e "$fullref" && ! -e "$pdbfile" ) then
   cat >! ${t}input_refpoints.pdb
 endif
 
-if(-e "$pdbfile") then
+if(-e "$pdbfile" && ! -e "$notthese") then
   echo "extracting goal points from $pdbfile"
   cat $pdbfile |\
    awk '! /^ATOM|^HETAT/{next}\
     {xyz=substr($0,31,24);\
     printf("ATOM      1  O   HOH z%8d%s  1.00  0.00           O         \n",++n,xyz)}' |\
+  hy36_encode.awk |\
+  cat >! ${t}input_refpoints.pdb
+endif
+
+if(-e "$pdbfile" && -e "$notthese") then
+  echo "extracting goal points from $pdbfile that are not in $notthese"
+  awk '/^ATOM|^HETAT/{print substr($0,31,24),"NOTME"}' $notthese |\
+  cat - $pdbfile |\
+   awk '$NF=="NOTME"{++notme[substr($0,1,24)];next}\
+    ! /^ATOM|^HETAT/{next}\
+    {xyz=substr($0,31,24)}\
+    notme[xyz]{next}\
+    {printf("ATOM      1  O   HOH z%8d%s  1.00  0.00           O         \n",++n,xyz)}' |\
   hy36_encode.awk |\
   cat >! ${t}input_refpoints.pdb
 endif
@@ -334,7 +348,7 @@ awk '$NF=="NEWXYZ"{++n;newX[n]=$1;newY[n]=$2;newZ[n]=$3;next}\
    printf("%s%8.3f%8.3f%8.3f%s  %s\n",pre,X,Y,Z,post,tag)}' |\
 cat >! ${t}moved.pdb
 
-grep moved ${t}moved.pdb | tee ${t}sanity.pdb | grep " O " 
+grep moved ${t}moved.pdb | tee ${t}sanity.pdb | grep " O " | tee ${t}movedwater.pdb
 #rmsd $fullref ${t}sanity.pdb | head
 awk '/moved/{print $(NF-1)}' ${t}sanity.pdb >! teleported_residues.txt
 
@@ -356,6 +370,12 @@ if( $energycheck ) then
 endif
 
 # now remap those new reference points?
+if(-e "$notthese") then
+   echo ""
+   combine_pdbs_runme.com $notthese ${t}movedwater.pdb ${t}cpptraj.pdb \
+    outfile=${t}newrefpoints.pdb >! ${t}final_combine.log
+    
+endif
 
 
 goto exit

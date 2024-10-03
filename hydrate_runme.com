@@ -24,6 +24,7 @@ set water_radius = 2.8
 set centroid_radius = 6
 
 set nadd = 1000000
+set force_nadd = 0
 
 set minimize = 0
 set energycheck = 0
@@ -129,8 +130,10 @@ awk '/^ATOM|^HETAT/{print substr($0,1,80)}' |\
 
 
 echo "AddToBox"
+set force = ""
+if( $force_nadd ) set force = " -V 1" 
 AddToBox -c $pdbfile -a ${t}onewater.pdb -na $nadd -P $protein_atoms -RP $protein_radius -RW $water_radius \
--o ${t}wet.pdb >&! ${t}addwater.log
+-o ${t}wet.pdb $force >&! ${t}addwater.log
 
 awk '/Added/{sum+=$4} END{print "added",sum}' ${t}addwater.log
 

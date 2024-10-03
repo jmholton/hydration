@@ -4,6 +4,7 @@
 #
 #
 set rstfile  = ""
+set frame = 1
 set parmfile  = xtal.prmtop
 set paddedparm  = padded.parm7
 set orignames = orignames.pdb
@@ -47,6 +48,7 @@ foreach Arg ( $* )
       # no equal sign
       if("$Arg" =~ *.pdb ) set pdbfile = $Arg
       if("$Arg" =~ *.rst7 ) set rstfile = $Arg
+      if("$Arg" =~ *.nc ) set rstfile = $Arg
       if("$Arg" =~ *.rst ) set rstfile = $Arg
       if("$Arg" =~ *.crd ) set rstfile = $Arg
       if("$Arg" =~ *.parmtop ) set parmfile = $Arg
@@ -57,6 +59,7 @@ foreach Arg ( $* )
 end
 
 if( $debug && $tempfile =~ /dev/shm/* ) set tempfile = ./tempfile_r2p_
+if( $tempfile =~ /dev/shm/$USER/* ) mkdir -p /dev/shm/$USER/
 
 if(! -e "$rstfile") then
    set BAD = "usage: $0 amber.rst7 [new.pdb] [$parmfile] [$orignames]"
@@ -72,8 +75,14 @@ if(! -e "$orignames") set orignames = ${dirname}/$orignames
 set prefix = `basename $rstfile .rst7`
 set prefix = `basename $prefix .rst`
 set prefix = `basename $prefix .crd`
+set prefix = `basename $prefix .nc`
 
-if("$outprefix" == "") set outprefix = ${prefix}
+if("$outprefix" == "") then
+  set outprefix = ${prefix}
+  if( $frame != 1 ) then
+    set outprefix = ${outprefix}_f${frame}
+  endif
+endif
 if("$pdbfile" != "") set outprefix = `echo $pdbfile | awk '{gsub(".pdb$","");print}'`
 
 if(! $quiet) then
@@ -89,13 +98,24 @@ endif
 
 set t = $tempfile
 
+# just in case xtal.prmtop does not exist
+if(! -e "$parmfile" ) then
+  echo "WARNING: missing $parmfile"
+  if( -e "$newparm") cp "$newparm" "$parmfile"
+  if( -e "$paddedparm") cp "$paddedparm" "$parmfile"
+endif
+
 echo "reading $rstfile using $parmfile"
 cpptraj -p $parmfile << EOF >&! ${t}cpptraj.log
-trajin $rstfile 1 1
+trajin $rstfile $frame $frame
 outtraj ${t}.pdb include_ep sg "P 1"
 go
 EOF
-if($status && -e "$paddedparm") then
+if( $status ) then
+  set BAD = "cpptraj failed and no paddedparm: $paddedparm"
+endif
+if( $?BAD && -e "$paddedparm") then
+  unset BAD
   set  RESIZE
   echo "making new parm file from $paddedparm"
   mv ${t}cpptraj.log ${t}cpptraj_error1.log
@@ -112,7 +132,7 @@ if($status && -e "$paddedparm") then
   parmwrite out $newparm
 EOF
   cpptraj -p $parmfile << EOF >&! ${t}cpptraj.log
-  trajin $rstfile 1 1
+  trajin $rstfile $frame $frame
   outtraj ${t}.pdb include_ep sg "P 1"
   go
 EOF
@@ -170,16 +190,22 @@ if( ! $status ) set MISSING
 if(-e "$Bfactors" ) then
     echo "applying B factors from $Bfactors"
     egrep "^SSBOND|^LINK|^CISP|^CRYST" $Bfactors >! ${t}Bfac.pdb
-    # take coordinates only, using names from starting point
-    awk '/^ATOM|^HETAT/{print $0,"ORIG"}' $Bfactors |\
+
+    set test = `egrep "^CRYST" ${t}Bfac.pdb | wc -l`
+    if( ! $test ) then
+       echo "WARNING: cell missing from $Bfactors "
+       egrep "^CRYST" ${t}out.pdb | head -n 1 >> ${t}Bfac.pdb
+    endif
+
+    # take occ/B only, using names from starting point
+    awk '/^ATOM|^HETAT/{print $0,"BFAC"}' $Bfactors |\
     cat - ${t}out.pdb |\
-    awk '$NF=="ORIG"{++o;pre[o]=substr($0,1,30);post[o]=substr($0,55,length($0)-55-4);next}\
+    awk '$NF=="BFAC"{++o;occB[o]=substr($0,55,12);next}\
       ! /^ATOM|^HETAT/{next}\
-          {++n;resid=substr($0,22,9)}\
-          lastres!=resid{lastres=resid;++ordresnum}\
-          pre[n]==""{print "REMARK WARNING atom",n,"missing from orig, max="o;\
-           pre[n]=substr($0,1,30);post[n]=substr($0,55)}\
-          {printf("%s%s%s\n",pre[n],substr($0,31,24),post[n])}' |\
+          {++n;pre=substr($0,1,54);post=substr($0,67)}\
+          occB[n]==""{print "REMARK WARNING atom",n,"missing from Bfac, max="o;\
+           occB[n]=last_occB}\
+          {printf("%s%s%s\n",pre,occB[n],post);last_occB=occB[n]}' |\
     cat >> ${t}Bfac.pdb
 
     grep "WARNING" ${t}Bfac.pdb

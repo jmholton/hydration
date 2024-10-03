@@ -6,6 +6,7 @@
 set maxreject = 1000
 
 set orignames = orignames.pdb
+set Bfac_file = Bfac.pdb
 set parmfile = ""
 set rstfile  = ""
 set notthese = current_restraints.pdb
@@ -139,6 +140,7 @@ awk '/Map value:/{++n;rho[n]=$NF;next}\
 sort -g >! ${t}water_rhos.txt
 head -n $maxreject ${t}water_rhos.txt |\
 awk '$1<0 && NF==2' >! ${t}strip_water.txt 
+# rho resnum
 set rejecting = `cat ${t}strip_water.txt | wc -l`
 if( $rejecting == 0 ) then
     echo "nothing to do."
@@ -158,6 +160,23 @@ awk 'NF==2{++sel[$2];sigma[$2]=$1;next}\
 head -n 1 ${t}_stripped.pdb
 tail -n 1 ${t}_stripped.pdb
 
+if(-e "$Bfac_file") then
+  echo "also collapsing out of $Bfac_file"
+  cat ${t}strip_water.txt |\
+  cat - $Bfac_file |\
+  awk 'NF==2{++sel[$2];next}\
+    ! /^ATOM|^HETAT/{next}\
+    ! sel[$NF]{print ++n,substr($0,61,6),"BFAC"}' |\
+  cat - $Bfac_file |\
+  awk '$NF=="BFAC"{B[$1]=$2;next}\
+    ! /^ATOM|^HETAT/{print;next}\
+      {++n;pre=substr($0,1,60);post=substr($0,67);\
+       printf("%s%6.2f%s\n",pre,B[n],post)}' |\
+  cat >! ${outprefix}_Bfac.pdb
+endif
+
+touch rejected_water.pdb
+cat ${t}_stripped.pdb >> rejected_water.pdb
 
 cat ${t}strip_water.txt |\
 awk '{print $NF}' |\
@@ -257,4 +276,14 @@ endif
 
 exit
 
+
+
+egrep "^CRYST1" current_restraints.pdb >! sfallme.pdb
+awk '{print substr($0,1,80)}' rejected_water.pdb |\
+reformatpdb.awk -v BFAC=80 | tee -a sfallme.pdb
+
+sfall xyzin sfallme.pdb mapout rejects.map << EOF
+mode atmmap
+symm 1
+EOF
 
