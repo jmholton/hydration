@@ -10,6 +10,7 @@ set rstfile = ""
 set pdbfile = ""
 set notthese = current_restraints.pdb
 set fullref = all_possible_refpoints.pdb
+set teleportee = ""
 
 set maxmoves = 10
 set minrho = 0
@@ -91,6 +92,9 @@ endif
 if(! -e "$mtzfile") then
     set BAD = "no mtz provided"
     goto exit
+endif
+if("$teleportee" != "" && ! -e "$teleportee") then
+  echo "WARNING: $teleportee does not exist"
 endif
 
 
@@ -291,6 +295,21 @@ else
     convert_pdb.awk -v skip=EP,H >! ${t}xyz.pdb
 endif
 
+if(-e "$teleportee") then
+  echo "using teleportation candidates listed in $teleportee"
+  cat $teleportee |\
+  awk '! /^ATOM|^HETAT/{next}\
+    {++m;rho=$NF;oresnum=substr($0,80)+0;\
+      X=substr($0,31,8)+0;\
+      Y=substr($0,39,8)+0;\
+      Z=substr($0,47,8)+0;\
+     print rho,oresnum,X,Y,Z,"OLDXYZ"}' |\
+  head -n $maxmoves >! ${t}rho_resnum_oldxyz.txt
+
+  set test = `cat ${t}rho_resnum_oldxyz.txt | wc -l`
+  if( $test ) goto skipold
+  echo "WARNING: no useful atoms in $teleportee"
+endif
 
 echo "probing fofc map at current water positions"
 phenix.map_value_at_point $mtzfile ${t}xyz.pdb \
@@ -305,9 +324,12 @@ awk '/Map value:/{rho[++n]=$NF;next}\
   {print rho[m],$NF,X,Y,Z,"OLDXYZ"}' |\
 sort -g |\
 head -n $maxmoves >! ${t}rho_resnum_oldxyz.txt
+
+skipold:
 head -n 1 ${t}rho_resnum_oldxyz.txt
-tail -n 1 ${t}rho_resnum_oldxyz.txt
+if( $maxmoves > 1 ) tail -n 1 ${t}rho_resnum_oldxyz.txt
 # rho resnum X Y Z OLDXYZ
+
 
 # find high slots for new restraints
 cat ${t}rho_resnum_oldxyz.txt ${t}xyz.pdb |\

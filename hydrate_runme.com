@@ -79,6 +79,12 @@ foreach Arg ( $* )
     endif
 end
 
+# fix anything invalid
+set test = `echo $nadd | awk '{print int($1)*($1>0)}'`
+if( "$test" != "$nadd" ) then
+  echo "WARNING: changing nadd=$nadd to nadd=$test"
+  set nadd = $test
+endif
 
 if( $debug && $tempfile =~ /dev/shm/* ) set tempfile = ./tempfile_hyd_
 set tmpdir = `dirname $tempfile`
@@ -89,6 +95,12 @@ set t = ${tempfile}
 if(! -e "$pdbfile" && ! -e "$rstfile" ) then
     set BAD = "no coordinates provided"
     goto exit
+endif
+
+if( $nadd == 0 ) then
+  echo "nothing to do. leaving $outtop and ref.crd unchanged."
+  cp $pdbfile $outpdb
+  goto exit
 endif
 
 if(! -e "$pdbfile" && -e "$rstfile" ) then
@@ -135,7 +147,10 @@ if( $force_nadd ) set force = " -V 1"
 AddToBox -c $pdbfile -a ${t}onewater.pdb -na $nadd -P $protein_atoms -RP $protein_radius -RW $water_radius \
 -o ${t}wet.pdb $force >&! ${t}addwater.log
 
-awk '/Added/{sum+=$4} END{print "added",sum}' ${t}addwater.log
+set added = `awk '/Added/{sum+=$4} END{print sum}' ${t}addwater.log`
+echo "added $added"
+
+# check for corruption?
 
 egrep "^CRYST1" $pdbfile | head -n 1 >! ${t}importme.pdb
 convert_pdb.awk -v fixEe=1 -v OCC=1 \
@@ -157,7 +172,10 @@ echo "grafting into current system"
 graft_atoms_runme.com $outpdb $rstfile paddedparm=$paddedparm \
   minimize=$minimize energycheck=$energycheck \
   outtop=$outtop outrst=$outrst debug=$debug
-
+if( $status ) then
+  set BAD = "grafting failed"
+  goto exit
+endif
 
 
 
